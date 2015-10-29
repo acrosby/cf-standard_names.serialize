@@ -1,0 +1,26 @@
+#! /usr/bin/env python
+import os
+import requests
+
+canonincal_url = "http://cfconventions.org/Data/cf-standard-names/%u/src/cf-standard-name-table.xml"
+xmlname = "cf-standard-name-table.xml"
+
+r = None
+for i in range(29, 100, 1):
+    r1 = requests.get(canonincal_url % (i,))
+    if r1.status_code == 200:
+        r = r1
+    elif r is not None:
+        break
+
+xmlcontent = r.content
+version = i - 1
+
+current_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], str(version))
+if not os.path.exists(current_path):
+    print "Getting Version %u" % (version,)
+    os.mkdir(current_path)
+    with open(os.path.join(current_path, xmlname), "w") as f:
+        f.write(xmlcontent)
+else:
+    print "Already up-to-date: Version %u" % (version,)
