@@ -1,0 +1,90 @@
+#! /usr/bin/env python
+"""
+    Copyright (C) 2015  Alexander Crosby
+
+    This program is free software; you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation; either version 2 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License along
+    with this program; if not, write to the Free Software Foundation, Inc.,
+    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+"""
+import sys
+import os
+import argparse
+try:
+    import xml.etree.cElementTree as ET
+except:
+    import xml.etree.ElementTree as ET
+
+parser = argparse.ArgumentParser()
+parser.add_argument("-t", "--to", help="Specify the format for conversion to.",
+                    choices=["json", "prettyjson", "yaml", "prettyyaml"],
+                    default="prettyyaml")
+parser.add_argument("-f", "--file", help="Specify the input xml, if omitted will search for the latest in a subdirectory named by version number.",
+                    )
+args = parser.parse_args()
+outformat = args.to
+if args.file is None:
+    for i in range(29, 100, 1):
+        current_path1 = os.path.join(os.path.split(os.path.abspath(__file__))[0], str(i), "cf-standard-name-table.xml")
+        if os.path.exists(current_path1):
+            current_path = current_path1
+        else:
+            break
+    inputxml = current_path
+else:
+    inputxml = args.file
+
+
+def to_pyobjects(inputxml):
+    tree = ET.parse(inputxml)
+    entrylist = tree.findall("entry")
+    entrydicts = {}
+    aliasdicts = {}
+    aliaslist = tree.findall("alias")
+    for i, entry in enumerate(entrylist):
+        entrydict = {}  # {"standard_name": entry.attrib["id"]}
+        for child in entry.getchildren():
+            entrydict[child.tag] = child.text
+        entrydicts[entry.attrib["id"]] = entrydict
+    for i, entry in enumerate(aliaslist):
+        # entrydict = {}  # {"standard_name": entry.attrib["id"]}
+        for child in entry.getchildren():
+            # entrydict[child.tag] = child.text
+            standard_name = child.text
+        aliasdicts[entry.attrib["id"]] = standard_name
+        entrydicts[standard_name]["alias"] = entry.attrib["id"]
+    return {"entry": entrydicts, "alias": aliasdicts}
+
+
+data = to_pyobjects(inputxml)
+
+if "json" in outformat:
+    try:
+        import simplejson as json
+    except:
+        import json
+        Warning("simplejson module not found, falling back to json")
+    if "pretty" in outformat:
+        try:
+            out = json.dumps(data, sort_keys=True, indent=4 * ' ')
+        except:
+            out = json.dumps(data, sort_keys=True, indent=4)
+    else:
+        out = json.dumps(data)
+if "yaml" in outformat:
+    import yaml
+    if "pretty" in outformat:
+        out = yaml.dump(data, default_flow_style=False, width=80, indent=4)
+    else:
+        out = yaml.dump(data)
+
+print out
